@@ -11,19 +11,21 @@ async function main() {
   const landRegistry = await LandRegistry.deploy();
   
   // Wait for deployment to finish
-  await landRegistry.deployed();
+  await landRegistry.waitForDeployment();
+
+  const deployedAddress = await landRegistry.getAddress();
   
-  console.log("LandRegistry deployed to:", landRegistry.address);
+  console.log("LandRegistry deployed to:", deployedAddress);
   console.log("\nDeployment successful!");
   console.log("\nNext steps:");
-  console.log("1. Update CONTRACT_ADDRESS in app.js with:", landRegistry.address);
+  console.log("1. Update CONTRACT_ADDRESS in app.js with:", deployedAddress);
   console.log("2. Verify the contract on Etherscan (if deploying to a public network)");
   console.log("3. Test the registration functionality");
   
   // Save the contract address to a file
   const fs = require('fs');
   const contractAddress = {
-    address: landRegistry.address,
+    address: deployedAddress,
     network: hre.network.name,
     deploymentTime: new Date().toISOString()
   };

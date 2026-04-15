@@ -92,9 +92,10 @@ let provider;
 let signer;
 let contract;
 let userAccount;
+const HARDHAT_CHAIN_ID = '0x7A69'; // 31337
 
 // Replace with your deployed contract address
-const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; // Update this!
+const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 // Initialize
 window.addEventListener('load', async () => {
@@ -139,9 +140,12 @@ async function connectWallet() {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         userAccount = accounts[0];
 
+        // Ensure MetaMask is on the local Hardhat chain used by this app.
+        await ensureHardhatNetwork();
+
         // Initialize provider and signer
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
         
         // Initialize contract
         contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
@@ -167,7 +171,48 @@ async function connectWallet() {
 
     } catch (error) {
         console.error('Error connecting wallet:', error);
-        showToast('Failed to connect wallet', 'error');
+        const message = String(error?.message || '');
+        if (message.includes('ERR_NAME_NOT_RESOLVED')) {
+            showToast('RPC URL not reachable. In MetaMask set Localhost RPC to http://127.0.0.1:8545', 'error');
+        } else if (error?.code === 4001) {
+            showToast('Wallet connection request was rejected', 'warning');
+        } else {
+            showToast('Failed to connect wallet', 'error');
+        }
+    }
+}
+
+async function ensureHardhatNetwork() {
+    const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (currentChainId === HARDHAT_CHAIN_ID) {
+        return;
+    }
+
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: HARDHAT_CHAIN_ID }]
+        });
+    } catch (switchError) {
+        // If the chain has not been added to MetaMask, add it and retry.
+        if (switchError.code === 4902) {
+            await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                    chainId: HARDHAT_CHAIN_ID,
+                    chainName: 'Hardhat Local',
+                    rpcUrls: ['http://127.0.0.1:8545'],
+                    nativeCurrency: {
+                        name: 'ETH',
+                        symbol: 'ETH',
+                        decimals: 18
+                    }
+                }]
+            });
+            return;
+        }
+
+        throw switchError;
     }
 }
 
@@ -285,7 +330,7 @@ async function loadAllProperties() {
         const propertiesList = document.getElementById('propertiesList');
         propertiesList.innerHTML = '';
 
-        if (count.toNumber() === 0) {
+        if (Number(count) === 0) {
             propertiesList.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); padding: 2rem;">No properties registered yet.</p>';
             return;
         }
@@ -308,7 +353,7 @@ function createPropertyCard(property) {
     card.className = 'property-card';
     card.onclick = () => showPropertyDetails(property);
 
-    const date = new Date(property.registrationDate.toNumber() * 1000);
+    const date = new Date(Number(property.registrationDate) * 1000);
 
     card.innerHTML = `
         <div class="property-id">${property.propertyId}</div>
@@ -328,7 +373,7 @@ function showPropertyDetails(property) {
     const modal = document.getElementById('propertyModal');
     const modalBody = document.getElementById('modalBody');
 
-    const date = new Date(property.registrationDate.toNumber() * 1000);
+    const date = new Date(Number(property.registrationDate) * 1000);
 
     modalBody.innerHTML = `
         <h2 style="font-family: var(--font-display); font-size: 2rem; margin-bottom: 1.5rem; color: var(--color-primary);">
@@ -420,7 +465,7 @@ async function verifyProperty() {
             return;
         }
 
-        const date = new Date(property.registrationDate.toNumber() * 1000);
+        const date = new Date(Number(property.registrationDate) * 1000);
 
         verifyResult.innerHTML = `
             <div style="text-align: center; padding: 2rem;">
@@ -468,12 +513,12 @@ async function updateStats() {
         const count = await contract.getPropertyCount();
         
         // Animate counter
-        animateCounter('totalProperties', count.toNumber());
+        animateCounter('totalProperties', Number(count));
         
         // For demo purposes, set some values
         // In production, you'd calculate these from contract events
-        animateCounter('totalTransfers', Math.floor(count.toNumber() * 0.3));
-        animateCounter('activeOwners', Math.floor(count.toNumber() * 0.7));
+        animateCounter('totalTransfers', Math.floor(Number(count) * 0.3));
+        animateCounter('activeOwners', Math.floor(Number(count) * 0.7));
 
     } catch (error) {
         console.error('Error updating stats:', error);
