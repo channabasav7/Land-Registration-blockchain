@@ -98,6 +98,14 @@ const HARDHAT_RPC_URL = 'http://127.0.0.1:8545';
 // Replace with your deployed contract address
 const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
+function toChainIdNumber(chainIdHex) {
+    if (!chainIdHex) {
+        return NaN;
+    }
+
+    return Number.parseInt(String(chainIdHex), 16);
+}
+
 // Initialize
 window.addEventListener('load', async () => {
     initializeEventListeners();
@@ -195,7 +203,10 @@ async function ensureContractAvailable() {
     }
 
     const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (chainId !== HARDHAT_CHAIN_ID) {
+    const currentChainIdNumber = toChainIdNumber(chainId);
+    const hardhatChainIdNumber = toChainIdNumber(HARDHAT_CHAIN_ID);
+
+    if (currentChainIdNumber !== hardhatChainIdNumber) {
         showToast('Switch MetaMask network to Hardhat Local (chain 31337)', 'error');
         return false;
     }
@@ -222,7 +233,7 @@ function handleContractCallError(error, fallbackMessage) {
 
 async function ensureHardhatNetwork() {
     const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (currentChainId === HARDHAT_CHAIN_ID) {
+    if (toChainIdNumber(currentChainId) === toChainIdNumber(HARDHAT_CHAIN_ID)) {
         return;
     }
 
