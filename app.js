@@ -93,9 +93,10 @@ let signer;
 let contract;
 let userAccount;
 const HARDHAT_CHAIN_ID = '0x7A69'; // 31337
+const HARDHAT_RPC_URL = 'http://127.0.0.1:8545';
 
 // Replace with your deployed contract address
-const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 // Initialize
 window.addEventListener('load', async () => {
@@ -169,6 +170,11 @@ async function connectWallet() {
             }
         });
 
+        window.ethereum.on('chainChanged', () => {
+            // Reinitialize provider/signer/contract when user switches networks in MetaMask.
+            location.reload();
+        });
+
     } catch (error) {
         console.error('Error connecting wallet:', error);
         const message = String(error?.message || '');
@@ -180,6 +186,38 @@ async function connectWallet() {
             showToast('Failed to connect wallet', 'error');
         }
     }
+}
+
+async function ensureContractAvailable() {
+    if (!contract || !provider) {
+        showToast('Please connect your wallet first', 'warning');
+        return false;
+    }
+
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (chainId !== HARDHAT_CHAIN_ID) {
+        showToast('Switch MetaMask network to Hardhat Local (chain 31337)', 'error');
+        return false;
+    }
+
+    const code = await provider.getCode(CONTRACT_ADDRESS);
+    if (!code || code === '0x') {
+        showToast(`No contract found at ${CONTRACT_ADDRESS} on ${HARDHAT_RPC_URL}. Redeploy and refresh.`, 'error');
+        return false;
+    }
+
+    return true;
+}
+
+function handleContractCallError(error, fallbackMessage) {
+    const message = String(error?.message || '');
+
+    if (message.includes('could not decode result data') || message.includes('BAD_DATA')) {
+        showToast('Contract call failed: wrong network or stale contract address. Reconnect wallet on Hardhat Local and refresh.', 'error');
+        return;
+    }
+
+    showToast(fallbackMessage, 'error');
 }
 
 async function ensureHardhatNetwork() {
@@ -226,6 +264,10 @@ async function handleRegistration(e) {
     }
 
     try {
+        if (!(await ensureContractAvailable())) {
+            return;
+        }
+
         // Get form data
         const propertyId = document.getElementById('propertyId').value;
         const address = document.getElementById('address').value;
@@ -272,7 +314,7 @@ async function handleRegistration(e) {
         } else if (error.message.includes('already registered')) {
             showToast('Property ID already registered', 'error');
         } else {
-            showToast('Failed to register property', 'error');
+            handleContractCallError(error, 'Failed to register property');
         }
     }
 }
@@ -287,6 +329,10 @@ async function searchProperty() {
     }
 
     try {
+        if (!(await ensureContractAvailable())) {
+            return;
+        }
+
         const count = await contract.getPropertyCount();
         const propertiesList = document.getElementById('propertiesList');
         propertiesList.innerHTML = '';
@@ -314,15 +360,14 @@ async function searchProperty() {
 
     } catch (error) {
         console.error('Error searching properties:', error);
-        showToast('Failed to search properties', 'error');
+        handleContractCallError(error, 'Failed to search properties');
     }
 }
 
 // Load All Properties
 async function loadAllProperties() {
     try {
-        if (!contract) {
-            showToast('Please connect your wallet first', 'warning');
+        if (!(await ensureContractAvailable())) {
             return;
         }
 
@@ -343,7 +388,7 @@ async function loadAllProperties() {
 
     } catch (error) {
         console.error('Error loading properties:', error);
-        showToast('Failed to load properties', 'error');
+        handleContractCallError(error, 'Failed to load properties');
     }
 }
 
@@ -446,8 +491,7 @@ async function verifyProperty() {
     }
 
     try {
-        if (!contract) {
-            showToast('Please connect your wallet first', 'warning');
+        if (!(await ensureContractAvailable())) {
             return;
         }
 
@@ -499,14 +543,14 @@ async function verifyProperty() {
 
     } catch (error) {
         console.error('Error verifying property:', error);
-        showToast('Failed to verify property', 'error');
+        handleContractCallError(error, 'Failed to verify property');
     }
 }
 
 // Update Statistics
 async function updateStats() {
     try {
-        if (!contract) {
+        if (!(await ensureContractAvailable())) {
             return;
         }
 
