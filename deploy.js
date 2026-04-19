@@ -1,4 +1,4 @@
-// scripts/deploy.js
+// deploy.js
 const hre = require("hardhat");
 
 async function main() {
@@ -18,7 +18,8 @@ async function main() {
   console.log("LandRegistry deployed to:", deployedAddress);
   console.log("\nDeployment successful!");
   console.log("\nNext steps:");
-  console.log("1. Update CONTRACT_ADDRESS in app.js with:", deployedAddress);
+  console.log("1. Refresh the frontend; it reads contract-address.json automatically.");
+  console.log("   Latest address:", deployedAddress);
   console.log("2. Verify the contract on Etherscan (if deploying to a public network)");
   console.log("3. Test the registration functionality");
   

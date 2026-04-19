@@ -96,7 +96,26 @@ const HARDHAT_CHAIN_ID = '0x7A69'; // 31337
 const HARDHAT_RPC_URL = 'http://127.0.0.1:8545';
 
 // Replace with your deployed contract address
-const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const DEFAULT_CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+let contractAddress = DEFAULT_CONTRACT_ADDRESS;
+
+async function loadContractAddress() {
+    try {
+        const response = await fetch(`contract-address.json?ts=${Date.now()}`);
+        if (!response.ok) {
+            throw new Error(`Failed to load contract-address.json (${response.status})`);
+        }
+
+        const data = await response.json();
+        if (data && typeof data.address === 'string' && data.address.trim()) {
+            contractAddress = data.address.trim();
+        }
+    } catch (error) {
+        console.warn('Using fallback contract address:', error);
+    }
+
+    return contractAddress;
+}
 
 function toChainIdNumber(chainIdHex) {
     if (!chainIdHex) {
@@ -157,7 +176,8 @@ async function connectWallet() {
         signer = await provider.getSigner();
         
         // Initialize contract
-        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        const resolvedContractAddress = await loadContractAddress();
+        contract = new ethers.Contract(resolvedContractAddress, CONTRACT_ABI, signer);
 
         // Update UI
         const walletBtn = document.getElementById('connectWallet');
@@ -211,9 +231,10 @@ async function ensureContractAvailable() {
         return false;
     }
 
-    const code = await provider.getCode(CONTRACT_ADDRESS);
+    const resolvedContractAddress = await loadContractAddress();
+    const code = await provider.getCode(resolvedContractAddress);
     if (!code || code === '0x') {
-        showToast(`No contract found at ${CONTRACT_ADDRESS} on ${HARDHAT_RPC_URL}. Redeploy and refresh.`, 'error');
+        showToast(`No contract found at ${resolvedContractAddress} on ${HARDHAT_RPC_URL}. Redeploy and refresh.`, 'error');
         return false;
     }
 

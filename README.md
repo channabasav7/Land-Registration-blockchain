@@ -93,30 +93,31 @@ npx hardhat compile
 npx hardhat node
 
 # Terminal 2 - Deploy contract
-npx hardhat run scripts/deploy.js --network localhost
+npx hardhat run deploy.js --network localhost
 ```
 
 #### Option 2: Deploy to Sepolia Testnet
 
 ```bash
 # Get Sepolia ETH from faucet: https://sepoliafaucet.com/
-npx hardhat run scripts/deploy.js --network sepolia
+npx hardhat run deploy.js --network sepolia
 ```
 
 #### Option 3: Deploy to Polygon Mumbai Testnet
 
 ```bash
 # Get Mumbai MATIC from faucet: https://faucet.polygon.technology/
-npx hardhat run scripts/deploy.js --network mumbai
+npx hardhat run deploy.js --network mumbai
 ```
 
 ### Configure Frontend
 
-1. **Update contract address in app.js**
-```javascript
-// Line 8 in app.js
-const CONTRACT_ADDRESS = "0xYourDeployedContractAddress";
+1. **Deploy the contract and save the address**
+```bash
+npx hardhat run deploy.js --network localhost
 ```
+
+This writes the latest deployed address to `contract-address.json`, and `app.js` reads that file automatically when you connect your wallet.
 
 2. **Start a local web server**
 ```bash
