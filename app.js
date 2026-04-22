@@ -301,15 +301,27 @@ async function handleRegistration(e) {
         }
 
         // Get form data
-        const propertyId = document.getElementById('propertyId').value;
-        const address = document.getElementById('address').value;
-        const city = document.getElementById('city').value;
-        const postalCode = document.getElementById('postalCode').value;
+        const propertyId = document.getElementById('propertyId').value.trim();
+        const address = document.getElementById('address').value.trim();
+        const city = document.getElementById('city').value.trim();
+        const postalCode = document.getElementById('postalCode').value.trim();
         const area = document.getElementById('area').value;
-        const latitude = document.getElementById('latitude').value;
-        const longitude = document.getElementById('longitude').value;
-        const ownerName = document.getElementById('ownerName').value;
-        const documentHash = document.getElementById('documentHash').value || '';
+        const latitude = document.getElementById('latitude').value.trim();
+        const longitude = document.getElementById('longitude').value.trim();
+        const ownerName = document.getElementById('ownerName').value.trim();
+        const documentHash = document.getElementById('documentHash').value.trim() || '';
+
+        if (!propertyId) {
+            showToast('Please enter a valid Property ID', 'warning');
+            return;
+        }
+
+        // Prevent a known revert by checking if this property ID already exists.
+        const existingProperty = await contract.getProperty(propertyId);
+        if (existingProperty.isRegistered) {
+            showToast(`Property ID ${propertyId} is already registered`, 'error');
+            return;
+        }
 
         showToast('Submitting transaction...', 'info');
 
@@ -341,9 +353,10 @@ async function handleRegistration(e) {
 
     } catch (error) {
         console.error('Error registering property:', error);
-        if (error.message.includes('user rejected')) {
+        const message = String(error?.message || '').toLowerCase();
+        if (message.includes('user rejected')) {
             showToast('Transaction rejected by user', 'warning');
-        } else if (error.message.includes('already registered')) {
+        } else if (message.includes('already registered') || message.includes('property already registered')) {
             showToast('Property ID already registered', 'error');
         } else {
             handleContractCallError(error, 'Failed to register property');
