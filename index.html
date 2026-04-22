@@ -195,6 +195,12 @@
     <div id="toast" class="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.16.0/dist/ethers.umd.min.js"></script>
-    <script src="app.js?v=5"></script>
+    <script>
+        // Fallback CDN in case jsDelivr is unavailable in a region/network.
+        if (!window.ethers) {
+            document.write('<script src="https://unpkg.com/ethers@6.16.0/dist/ethers.umd.min.js"><\\/script>');
+        }
+    </script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>

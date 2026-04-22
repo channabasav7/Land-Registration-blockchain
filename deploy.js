@@ -25,18 +25,30 @@ async function main() {
   
   // Save the contract address to a file
   const fs = require('fs');
+  const path = require('path');
   const contractAddress = {
     address: deployedAddress,
     network: hre.network.name,
     deploymentTime: new Date().toISOString()
   };
-  
+
+  const networkFileName = `contract-address.${hre.network.name}.json`;
   fs.writeFileSync(
-    'contract-address.json',
+    path.join(process.cwd(), networkFileName),
     JSON.stringify(contractAddress, null, 2)
   );
-  
-  console.log("\nContract address saved to contract-address.json");
+  console.log(`\nContract address saved to ${networkFileName}`);
+
+  // Keep production-friendly default for hosted frontend; do not overwrite with localhost.
+  if (hre.network.name !== 'localhost' && hre.network.name !== 'hardhat') {
+    fs.writeFileSync(
+      path.join(process.cwd(), 'contract-address.json'),
+      JSON.stringify(contractAddress, null, 2)
+    );
+    console.log('Contract address saved to contract-address.json');
+  } else {
+    console.log('Skipped updating contract-address.json for local network.');
+  }
 }
 
 main()

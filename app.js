@@ -114,15 +114,25 @@ let contractAddress = DEFAULT_CONTRACT_ADDRESS;
 
 async function loadContractAddress() {
     try {
-        const response = await fetch(`contract-address.json?ts=${Date.now()}`);
-        if (!response.ok) {
-            throw new Error(`Failed to load contract-address.json (${response.status})`);
+        const fileCandidates = [
+            `contract-address.${isLocalEnvironment ? 'localhost' : 'sepolia'}.json`,
+            'contract-address.json'
+        ];
+
+        for (const fileName of fileCandidates) {
+            const response = await fetch(`${fileName}?ts=${Date.now()}`);
+            if (!response.ok) {
+                continue;
+            }
+
+            const data = await response.json();
+            if (data && typeof data.address === 'string' && data.address.trim()) {
+                contractAddress = data.address.trim();
+                return contractAddress;
+            }
         }
 
-        const data = await response.json();
-        if (data && typeof data.address === 'string' && data.address.trim()) {
-            contractAddress = data.address.trim();
-        }
+        throw new Error('No valid contract address file found');
     } catch (error) {
         console.warn('Using fallback contract address:', error);
     }
@@ -174,6 +184,11 @@ async function connectWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
             showToast('Please install MetaMask!', 'error');
+            return;
+        }
+
+        if (typeof window.ethers === 'undefined') {
+            showToast('Web3 library failed to load. Please refresh and try again.', 'error');
             return;
         }
 
