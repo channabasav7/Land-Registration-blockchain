@@ -92,8 +92,21 @@ let provider;
 let signer;
 let contract;
 let userAccount;
-const HARDHAT_CHAIN_ID = '0x7A69'; // 31337
-const HARDHAT_RPC_URL = 'http://127.0.0.1:8545';
+const NETWORKS = {
+    localhost: {
+        chainId: '0x7A69', // 31337
+        chainName: 'Hardhat Local',
+        rpcUrl: 'http://127.0.0.1:8545'
+    },
+    production: {
+        chainId: '0xaa36a7', // 11155111
+        chainName: 'Sepolia',
+        rpcUrl: 'https://rpc.sepolia.org'
+    }
+};
+
+const isLocalEnvironment = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const ACTIVE_NETWORK = isLocalEnvironment ? NETWORKS.localhost : NETWORKS.production;
 
 // Replace with your deployed contract address
 const DEFAULT_CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
@@ -168,8 +181,8 @@ async function connectWallet() {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         userAccount = accounts[0];
 
-        // Ensure MetaMask is on the local Hardhat chain used by this app.
-        await ensureHardhatNetwork();
+        // Ensure MetaMask is on the expected network for this environment.
+        await ensureExpectedNetwork();
 
         // Initialize provider and signer
         provider = new ethers.BrowserProvider(window.ethereum);
@@ -207,7 +220,7 @@ async function connectWallet() {
         console.error('Error connecting wallet:', error);
         const message = String(error?.message || '');
         if (message.includes('ERR_NAME_NOT_RESOLVED')) {
-            showToast('RPC URL not reachable. In MetaMask set Localhost RPC to http://127.0.0.1:8545', 'error');
+            showToast(`RPC URL not reachable. Set MetaMask RPC to ${ACTIVE_NETWORK.rpcUrl}`, 'error');
         } else if (error?.code === 4001) {
             showToast('Wallet connection request was rejected', 'warning');
         } else {
@@ -224,17 +237,17 @@ async function ensureContractAvailable() {
 
     const chainId = await window.ethereum.request({ method: 'eth_chainId' });
     const currentChainIdNumber = toChainIdNumber(chainId);
-    const hardhatChainIdNumber = toChainIdNumber(HARDHAT_CHAIN_ID);
+    const expectedChainIdNumber = toChainIdNumber(ACTIVE_NETWORK.chainId);
 
-    if (currentChainIdNumber !== hardhatChainIdNumber) {
-        showToast('Switch MetaMask network to Hardhat Local (chain 31337)', 'error');
+    if (currentChainIdNumber !== expectedChainIdNumber) {
+        showToast(`Switch MetaMask network to ${ACTIVE_NETWORK.chainName}`, 'error');
         return false;
     }
 
     const resolvedContractAddress = await loadContractAddress();
     const code = await provider.getCode(resolvedContractAddress);
     if (!code || code === '0x') {
-        showToast(`No contract found at ${resolvedContractAddress} on ${HARDHAT_RPC_URL}. Redeploy and refresh.`, 'error');
+        showToast(`No contract found at ${resolvedContractAddress} on ${ACTIVE_NETWORK.chainName}. Redeploy and refresh.`, 'error');
         return false;
     }
 
@@ -245,23 +258,23 @@ function handleContractCallError(error, fallbackMessage) {
     const message = String(error?.message || '');
 
     if (message.includes('could not decode result data') || message.includes('BAD_DATA')) {
-        showToast('Contract call failed: wrong network or stale contract address. Reconnect wallet on Hardhat Local and refresh.', 'error');
+        showToast(`Contract call failed: wrong network or stale contract address. Reconnect wallet on ${ACTIVE_NETWORK.chainName} and refresh.`, 'error');
         return;
     }
 
     showToast(fallbackMessage, 'error');
 }
 
-async function ensureHardhatNetwork() {
+async function ensureExpectedNetwork() {
     const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (toChainIdNumber(currentChainId) === toChainIdNumber(HARDHAT_CHAIN_ID)) {
+    if (toChainIdNumber(currentChainId) === toChainIdNumber(ACTIVE_NETWORK.chainId)) {
         return;
     }
 
     try {
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: HARDHAT_CHAIN_ID }]
+            params: [{ chainId: ACTIVE_NETWORK.chainId }]
         });
     } catch (switchError) {
         // If the chain has not been added to MetaMask, add it and retry.
@@ -269,9 +282,9 @@ async function ensureHardhatNetwork() {
             await window.ethereum.request({
                 method: 'wallet_addEthereumChain',
                 params: [{
-                    chainId: HARDHAT_CHAIN_ID,
-                    chainName: 'Hardhat Local',
-                    rpcUrls: ['http://127.0.0.1:8545'],
+                    chainId: ACTIVE_NETWORK.chainId,
+                    chainName: ACTIVE_NETWORK.chainName,
+                    rpcUrls: [ACTIVE_NETWORK.rpcUrl],
                     nativeCurrency: {
                         name: 'ETH',
                         symbol: 'ETH',
