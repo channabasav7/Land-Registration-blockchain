@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("hardhat-gas-reporter");
 require("dotenv").config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -10,6 +11,8 @@ module.exports = {
         enabled: true,
         runs: 200
       }
+      ,
+      viaIR: true
     }
   },
   networks: {
@@ -66,5 +69,12 @@ module.exports = {
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts"
+  }
+  ,
+  gasReporter: {
+    enabled: true,
+    currency: "USD",
+    coinmarketcap: process.env.COINMARKETCAP_API_KEY || "",
+    showTimeSpent: false
   }
 };

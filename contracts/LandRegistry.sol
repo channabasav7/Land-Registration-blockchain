@@ -59,7 +59,7 @@ contract LandRegistry {
     );
     
     // Modifiers
-    modifier onlyPropertyOwner(string memory _propertyId) {
+    modifier onlyPropertyOwner(string calldata _propertyId) {
         require(
             properties[_propertyId].owner == msg.sender,
             "Only property owner can perform this action"
@@ -67,7 +67,7 @@ contract LandRegistry {
         _;
     }
     
-    modifier propertyExists(string memory _propertyId) {
+    modifier propertyExists(string calldata _propertyId) {
         require(
             properties[_propertyId].isRegistered,
             "Property does not exist"
@@ -75,7 +75,7 @@ contract LandRegistry {
         _;
     }
     
-    modifier propertyNotExists(string memory _propertyId) {
+    modifier propertyNotExists(string calldata _propertyId) {
         require(
             !properties[_propertyId].isRegistered,
             "Property already registered"
@@ -96,16 +96,16 @@ contract LandRegistry {
      * @param _documentHash IPFS hash of supporting documents
      */
     function registerProperty(
-        string memory _propertyId,
-        string memory _address,
-        string memory _city,
-        string memory _postalCode,
+        string calldata _propertyId,
+        string calldata _address,
+        string calldata _city,
+        string calldata _postalCode,
         uint256 _area,
-        string memory _latitude,
-        string memory _longitude,
-        string memory _ownerName,
-        string memory _documentHash
-    ) public propertyNotExists(_propertyId) {
+        string calldata _latitude,
+        string calldata _longitude,
+        string calldata _ownerName,
+        string calldata _documentHash
+    ) external propertyNotExists(_propertyId) {
         require(bytes(_propertyId).length > 0, "Property ID cannot be empty");
         require(bytes(_address).length > 0, "Address cannot be empty");
         require(_area > 0, "Area must be greater than 0");
@@ -143,10 +143,10 @@ contract LandRegistry {
      * @param _newOwnerName New owner's legal name
      */
     function transferProperty(
-        string memory _propertyId,
+        string calldata _propertyId,
         address _newOwner,
-        string memory _newOwnerName
-    ) public propertyExists(_propertyId) onlyPropertyOwner(_propertyId) {
+        string calldata _newOwnerName
+    ) external propertyExists(_propertyId) onlyPropertyOwner(_propertyId) {
         require(_newOwner != address(0), "Invalid new owner address");
         require(_newOwner != msg.sender, "Cannot transfer to yourself");
         require(bytes(_newOwnerName).length > 0, "New owner name cannot be empty");
@@ -184,10 +184,10 @@ contract LandRegistry {
      * @param _documentHash Updated document hash
      */
     function updatePropertyDetails(
-        string memory _propertyId,
-        string memory _address,
-        string memory _documentHash
-    ) public propertyExists(_propertyId) onlyPropertyOwner(_propertyId) {
+        string calldata _propertyId,
+        string calldata _address,
+        string calldata _documentHash
+    ) external propertyExists(_propertyId) onlyPropertyOwner(_propertyId) {
         Property storage property = properties[_propertyId];
         
         if (bytes(_address).length > 0) {
@@ -217,7 +217,7 @@ contract LandRegistry {
         * @return registrationDate Registration timestamp
         * @return isRegistered Registration status flag
      */
-    function getProperty(string memory _propertyId) public view returns (
+    function getProperty(string calldata _propertyId) external view returns (
         string memory propertyId,
         string memory propertyAddress,
         string memory city,
@@ -253,8 +253,8 @@ contract LandRegistry {
      * @param _propertyId Property identifier
      * @return Array of all transfers
      */
-    function getTransferHistory(string memory _propertyId) 
-        public 
+    function getTransferHistory(string calldata _propertyId) 
+        external 
         view 
         propertyExists(_propertyId) 
         returns (Transfer[] memory) 
@@ -267,7 +267,7 @@ contract LandRegistry {
      * @param _owner Owner's wallet address
      * @return Array of property IDs
      */
-    function getPropertiesByOwner(address _owner) public view returns (string[] memory) {
+    function getPropertiesByOwner(address _owner) external view returns (string[] memory) {
         return ownerProperties[_owner];
     }
     
@@ -275,7 +275,7 @@ contract LandRegistry {
      * @dev Get total number of registered properties
      * @return Total count
      */
-    function getPropertyCount() public view returns (uint256) {
+    function getPropertyCount() external view returns (uint256) {
         return propertyIds.length;
     }
     
@@ -284,7 +284,7 @@ contract LandRegistry {
      * @param _index Index in the array
      * @return Property ID
      */
-    function getPropertyIdByIndex(uint256 _index) public view returns (string memory) {
+    function getPropertyIdByIndex(uint256 _index) external view returns (string memory) {
         require(_index < propertyIds.length, "Index out of bounds");
         return propertyIds[_index];
     }
@@ -294,7 +294,7 @@ contract LandRegistry {
      * @param _propertyId Property identifier
      * @return Boolean indicating registration status
      */
-    function isPropertyRegistered(string memory _propertyId) public view returns (bool) {
+    function isPropertyRegistered(string calldata _propertyId) external view returns (bool) {
         return properties[_propertyId].isRegistered;
     }
     
@@ -306,7 +306,7 @@ contract LandRegistry {
     function _removePropertyFromOwner(address _owner, string memory _propertyId) private {
         string[] storage ownedProperties = ownerProperties[_owner];
         
-        for (uint256 i = 0; i < ownedProperties.length; i++) {
+        for (uint256 i = 0; i < ownedProperties.length; ) {
             if (keccak256(bytes(ownedProperties[i])) == keccak256(bytes(_propertyId))) {
                 // Move the last element to the deleted position
                 ownedProperties[i] = ownedProperties[ownedProperties.length - 1];
@@ -314,6 +314,7 @@ contract LandRegistry {
                 ownedProperties.pop();
                 break;
             }
+            unchecked { ++i; }
         }
     }
     
@@ -326,7 +327,7 @@ contract LandRegistry {
         * @return registrationDate Registration timestamp
         * @return propertyAddress Physical address of the property
      */
-    function verifyProperty(string memory _propertyId) public view returns (
+    function verifyProperty(string calldata _propertyId) external view returns (
         bool isRegistered,
         address owner,
         string memory ownerName,

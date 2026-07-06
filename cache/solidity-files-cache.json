@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\chann\\Desktop\\Land Registration\\contracts\\LandRegistry.sol": {
-      "lastModificationDate": 1776310029827,
-      "contentHash": "b3a139f0caef7f129e22cc559f204ac2",
+      "lastModificationDate": 1783357631566,
+      "contentHash": "eea87c8c85e5bf5780a9282673cd08ae",
       "sourceName": "contracts/LandRegistry.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -12,6 +12,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
