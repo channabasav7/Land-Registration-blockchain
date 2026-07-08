@@ -92,6 +92,7 @@ let provider;
 let signer;
 let contract;
 let userAccount;
+const SECTION_IDS = ['registration-section', 'explorer-section', 'verify-section'];
 const NETWORKS = {
     localhost: {
         chainId: '0x7A69', // 31337
@@ -168,6 +169,21 @@ function initializeEventListeners() {
     
     // Registration Form
     document.getElementById('registrationForm').addEventListener('submit', handleRegistration);
+
+    // Fast keyboard actions for explorer and verification flows.
+    document.getElementById('searchInput').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            searchProperty();
+        }
+    });
+
+    document.getElementById('verifyPropertyId').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            verifyProperty();
+        }
+    });
     
     // Navigation
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -176,6 +192,48 @@ function initializeEventListeners() {
             const target = e.target.getAttribute('href').substring(1);
             navigateTo(target);
         });
+    });
+}
+
+function setButtonLoading(button, isLoading, loadingLabel) {
+    if (!button) {
+        return;
+    }
+
+    if (isLoading) {
+        if (!button.dataset.originalHtml) {
+            button.dataset.originalHtml = button.innerHTML;
+        }
+        button.disabled = true;
+        button.classList.add('is-loading');
+        button.innerHTML = `
+            <span class="button-spinner" aria-hidden="true"></span>
+            <span>${loadingLabel}</span>
+        `;
+        return;
+    }
+
+    button.disabled = false;
+    button.classList.remove('is-loading');
+    if (button.dataset.originalHtml) {
+        button.innerHTML = button.dataset.originalHtml;
+        delete button.dataset.originalHtml;
+    }
+}
+
+function showEmptyState(container, title, message, icon = '⌂') {
+    container.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-state-icon" aria-hidden="true">${icon}</div>
+            <h3>${title}</h3>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function setVisibleSection(sectionId) {
+    SECTION_IDS.forEach((id) => {
+        document.getElementById(id).style.display = id === sectionId ? 'block' : 'none';
     });
 }
 
@@ -318,10 +376,14 @@ async function ensureExpectedNetwork() {
 async function handleRegistration(e) {
     e.preventDefault();
 
+    const submitButton = e.submitter || document.querySelector('#registrationForm .btn-primary');
+
     if (!userAccount) {
         showToast('Please connect your wallet first', 'warning');
         return;
     }
+
+    setButtonLoading(submitButton, true, 'Registering...');
 
     try {
         if (!(await ensureContractAvailable())) {
@@ -389,17 +451,24 @@ async function handleRegistration(e) {
         } else {
             handleContractCallError(error, 'Failed to register property');
         }
+    } finally {
+        setButtonLoading(submitButton, false);
     }
 }
 
 // Search Property
 async function searchProperty() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const searchButton = document.querySelector('.search-btn');
+    const propertiesList = document.getElementById('propertiesList');
     
     if (!searchTerm) {
         loadAllProperties();
         return;
     }
+
+    setButtonLoading(searchButton, true, 'Searching...');
+    propertiesList.innerHTML = '<div class="loading-state">Searching registry...</div>';
 
     try {
         if (!(await ensureContractAvailable())) {
@@ -407,7 +476,6 @@ async function searchProperty() {
         }
 
         const count = await contract.getPropertyCount();
-        const propertiesList = document.getElementById('propertiesList');
         propertiesList.innerHTML = '';
 
         let found = false;
@@ -428,28 +496,49 @@ async function searchProperty() {
         }
 
         if (!found) {
-            propertiesList.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); padding: 2rem;">No properties found matching your search.</p>';
+            showEmptyState(
+                propertiesList,
+                'No matches found',
+                'Try a different Property ID, owner name, city, or address.',
+                '⌕'
+            );
         }
 
     } catch (error) {
         console.error('Error searching properties:', error);
         handleContractCallError(error, 'Failed to search properties');
+    } finally {
+        setButtonLoading(searchButton, false);
     }
 }
 
 // Load All Properties
 async function loadAllProperties() {
+    const propertiesList = document.getElementById('propertiesList');
+    const searchButton = document.querySelector('.search-btn');
+
     try {
         if (!(await ensureContractAvailable())) {
+            showEmptyState(
+                propertiesList,
+                'Connect your wallet to browse',
+                `Explorer needs an active wallet on ${ACTIVE_NETWORK.chainName} before properties can be loaded.`,
+                '⬡'
+            );
             return;
         }
 
+        propertiesList.innerHTML = '<div class="loading-state">Loading properties...</div>';
         const count = await contract.getPropertyCount();
-        const propertiesList = document.getElementById('propertiesList');
         propertiesList.innerHTML = '';
 
         if (Number(count) === 0) {
-            propertiesList.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); padding: 2rem;">No properties registered yet.</p>';
+            showEmptyState(
+                propertiesList,
+                'No properties yet',
+                'Be the first to register a property in the registry.',
+                '◇'
+            );
             return;
         }
 
@@ -462,6 +551,10 @@ async function loadAllProperties() {
     } catch (error) {
         console.error('Error loading properties:', error);
         handleContractCallError(error, 'Failed to load properties');
+    } finally {
+        if (searchButton) {
+            searchButton.disabled = false;
+        }
     }
 }
 
@@ -557,26 +650,36 @@ function closeModal() {
 // Verify Property
 async function verifyProperty() {
     const propertyId = document.getElementById('verifyPropertyId').value;
+    const verifyButton = document.querySelector('#verify-section .btn-primary');
+    const verifyResult = document.getElementById('verifyResult');
     
     if (!propertyId) {
         showToast('Please enter a Property ID', 'warning');
         return;
     }
 
+    setButtonLoading(verifyButton, true, 'Verifying...');
+    verifyResult.innerHTML = '<div class="loading-state">Checking blockchain record...</div>';
+
     try {
         if (!(await ensureContractAvailable())) {
+            showEmptyState(
+                verifyResult,
+                'Connect your wallet to verify',
+                `Verification requires an active wallet on ${ACTIVE_NETWORK.chainName}.`,
+                '⬡'
+            );
             return;
         }
 
         const property = await contract.getProperty(propertyId);
-        const verifyResult = document.getElementById('verifyResult');
 
         if (!property.isRegistered) {
             verifyResult.innerHTML = `
-                <div style="text-align: center; padding: 2rem;">
-                    <div style="font-size: 4rem; margin-bottom: 1rem;">❌</div>
-                    <h3 style="font-family: var(--font-display); font-size: 2rem; color: var(--color-error); margin-bottom: 0.5rem;">Not Verified</h3>
-                    <p style="color: var(--color-text-secondary);">This property ID is not registered on the blockchain.</p>
+                <div class="verification-card verification-card--error">
+                    <div class="verification-emoji" aria-hidden="true">❌</div>
+                    <h3>Not verified</h3>
+                    <p>This property ID is not registered on the blockchain.</p>
                 </div>
             `;
             return;
@@ -585,9 +688,10 @@ async function verifyProperty() {
         const date = new Date(Number(property.registrationDate) * 1000);
 
         verifyResult.innerHTML = `
-            <div style="text-align: center; padding: 2rem;">
-                <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
-                <h3 style="font-family: var(--font-display); font-size: 2rem; color: var(--color-success); margin-bottom: 1rem;">Verified Property</h3>
+            <div class="verification-card verification-card--success">
+                <div class="verification-emoji" aria-hidden="true">✅</div>
+                <h3>Verified property</h3>
+                <p>Ownership and registration details match the blockchain record.</p>
             </div>
             
             <div style="display: grid; gap: 1.5rem; margin-top: 2rem;">
@@ -617,6 +721,8 @@ async function verifyProperty() {
     } catch (error) {
         console.error('Error verifying property:', error);
         handleContractCallError(error, 'Failed to verify property');
+    } finally {
+        setButtonLoading(verifyButton, false);
     }
 }
 
@@ -663,10 +769,7 @@ function animateCounter(elementId, targetValue) {
 
 // Navigation
 function navigateTo(section) {
-    // Hide all sections
-    document.getElementById('registration-section').style.display = 'none';
-    document.getElementById('explorer-section').style.display = 'none';
-    document.getElementById('verify-section').style.display = 'none';
+    setVisibleSection(`${section}-section`);
 
     // Update nav links
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -676,19 +779,18 @@ function navigateTo(section) {
     // Show selected section
     switch(section) {
         case 'home':
-            document.getElementById('registration-section').style.display = 'block';
             document.querySelector('a[href="#home"]').classList.add('active');
             break;
         case 'explorer':
-            document.getElementById('explorer-section').style.display = 'block';
             document.querySelector('a[href="#explorer"]').classList.add('active');
             loadAllProperties();
             break;
         case 'verify':
-            document.getElementById('verify-section').style.display = 'block';
             document.querySelector('a[href="#verify"]').classList.add('active');
             break;
     }
+
+    document.getElementById(`${section}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // Show functions for buttons
